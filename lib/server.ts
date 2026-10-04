@@ -60,10 +60,13 @@ export const googleReady = () =>
   !!setting("GOOGLE_CLIENT_SECRET") &&
   setting("SESSION_SECRET").length >= 32;
 export async function sendConfirmation(orderId: string, owner: string) {
+  const useResend = !!setting("RESEND_API_KEY");
   if (
+    useResend ? !setting("RESEND_FROM") : (
     !setting("MAILGUN_API_KEY") ||
     !setting("MAILGUN_DOMAIN") ||
     !setting("MAILGUN_FROM")
+    )
   )
     return "not_configured";
   const db = sql();
@@ -80,7 +83,7 @@ export async function sendConfirmation(orderId: string, owner: string) {
       await db`SELECT name,quantity,unit_price,configuration FROM order_items WHERE order_id=${orderId}`;
     const amount = (c: number) => (c / 100).toFixed(2);
     const form = new FormData();
-    form.set("from", setting("MAILGUN_FROM"));
+    form.set("from", setting(useResend ? "RESEND_FROM" : "MAILGUN_FROM"));
     form.set("to", order.email);
     form.set("subject", `Your NOVA order ${orderId.slice(0, 8).toUpperCase()}`);
     form.set(
@@ -91,7 +94,21 @@ export async function sendConfirmation(orderId: string, owner: string) {
       setting("MAILGUN_REGION") === "EU"
         ? "api.eu.mailgun.net"
         : "api.mailgun.net";
-    const response = await fetch(
+    const response = useResend ? await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + setting("RESEND_API_KEY"),
+        "Content-Type": "application/json",
+        "Idempotency-Key": `nova-order-${orderId}`,
+      },
+      body: JSON.stringify({
+        from: form.get("from"),
+        to: [order.email],
+        subject: form.get("subject"),
+        text: form.get("text"),
+      }),
+      signal: AbortSignal.timeout(12000),
+    }) : await fetch(
       `https://${host}/v3/${encodeURIComponent(setting("MAILGUN_DOMAIN"))}/messages`,
       {
         method: "POST",
