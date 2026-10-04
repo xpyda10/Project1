@@ -119,7 +119,13 @@ export async function sendConfirmation(orderId: string, owner: string) {
         signal: AbortSignal.timeout(12000),
       },
     );
-    if (!response.ok) throw new Error("Email provider rejected request");
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      const category = typeof detail.name === "string" && /^[a-z_]+$/.test(detail.name)
+        ? detail.name : "provider_error";
+      console.error("Order confirmation rejected", { provider: useResend ? "resend" : "mailgun", status: response.status, category });
+      throw new Error("Email provider rejected request");
+    }
     await db`UPDATE orders SET email_status='sent' WHERE id=${orderId}`;
     return "sent";
   } catch {
