@@ -36,7 +36,9 @@ export async function GET(req: Request) {
         },
       },
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized")
+      return Response.json({ error: "Please sign in again." }, { status: 401 });
     return Response.json(
       {
         error:
@@ -61,13 +63,21 @@ export async function POST(req: Request) {
     };
     if (body.action === "cart") {
       const items = cartSchema.parse(body.items);
+      const baseItems = cartSchema.parse(body.baseItems);
       priceCart(items, await catalog());
-      if (live())
-        await sql()`INSERT INTO carts(id,items) VALUES(${who.owner},${JSON.stringify(items)}::jsonb) ON CONFLICT(id) DO UPDATE SET items=EXCLUDED.items,updated_at=now()`;
+      if (live()) {
+        const db = sql();
+        const results = await db.transaction([
+          db`INSERT INTO carts(id,items) VALUES(${who.owner},'[]'::jsonb) ON CONFLICT(id) DO NOTHING`,
+          db`UPDATE carts SET items=${JSON.stringify(items)}::jsonb,updated_at=now() WHERE id=${who.owner} AND items=${JSON.stringify(baseItems)}::jsonb RETURNING id`,
+        ]);
+        const changed = results[1];
+        if (!changed.length) return Response.json({ error: "Your bag changed on another device. Refreshing it now; please try again." }, { status: 409, headers });
+      }
       return Response.json({ ok: true }, { headers });
     }
     if (body.action === "logout") {
-      const session = readCookie(req, "form_session");
+      const session = req.headers.get("authorization")?.replace(/^Bearer /, "") || readCookie(req, "form_session");
       if (session && live())
         await sql()`DELETE FROM sessions WHERE token_hash=${await hash(session)}`;
       return Response.json(
@@ -159,7 +169,7 @@ export async function POST(req: Request) {
         { headers },
       );
     }
-    await db`DELETE FROM carts WHERE id=${who.owner} AND items=${JSON.stringify(data.items)}::jsonb`;
+    await db`UPDATE carts SET items='[]'::jsonb,updated_at=now() WHERE id=${who.owner} AND items=${JSON.stringify(data.items)}::jsonb`;
     const emailStatus = await sendConfirmation(data.key, who.owner);
     if (emailStatus === "not_configured")
       await db`UPDATE orders SET email_status='not_configured' WHERE id=${data.key}`;
@@ -181,7 +191,7 @@ export async function POST(req: Request) {
             : (error as Error).message
           : "We could not complete this request. Your details are still here; please try again.",
       },
-      { status: validation ? 400 : 503 },
+      { status: error instanceof Error && error.message === "Unauthorized" ? 401 : validation ? 400 : 503 },
     );
   }
 }

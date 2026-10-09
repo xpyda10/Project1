@@ -31,7 +31,7 @@ export async function GET(req: Request) {
       Location: "https://accounts.google.com/o/oauth2/v2/auth?" + params,
       "Set-Cookie": cookie(
         "form_oauth",
-        await signFlow({ state, nonce, verifier }),
+        await signFlow({ state, nonce, verifier, mobile: new URL(req.url).searchParams.get("mobile") === "1" ? "1" : "0" }),
         600,
       ),
       "Cache-Control": "no-store",

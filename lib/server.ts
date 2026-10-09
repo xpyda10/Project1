@@ -28,6 +28,8 @@ export function origin(req: Request) {
   return setting("APP_URL") || new URL(req.url).origin;
 }
 export function checkOrigin(req: Request) {
+  // Native clients authenticate explicitly; browsers continue to require CSRF protection.
+  if (/^Bearer [a-f0-9-]{72}$/.test(req.headers.get("authorization") || "")) return;
   if (req.headers.get("origin") !== origin(req))
     throw new Error("Please reload this page before trying again.");
 }
@@ -38,15 +40,19 @@ export async function identity(req: Request) {
     visitor = token();
     fresh = true;
   }
-  const owner = await hash(visitor);
+  const guestOwner = await hash(visitor);
   let user: null | { id: string; name: string; email: string } = null;
-  const session = readCookie(req, "form_session");
+  const authorization = req.headers.get("authorization");
+  const session = authorization ? authorization.replace(/^Bearer /, "") : readCookie(req, "form_session");
   if (live() && session) {
     const rows =
       await sql()`SELECT u.id,u.name,u.email FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=${await hash(session)} AND s.expires_at>now()`;
     user = (rows[0] as { id: string; name: string; email: string }) || null;
   }
-  return { owner, user, visitor, fresh };
+  if (authorization && (!/^Bearer [a-f0-9-]{72}$/.test(authorization) || !user))
+    throw new Error("Unauthorized");
+  const owner = user ? await hash("account:" + user.id) : guestOwner;
+  return { owner, guestOwner, user, visitor, fresh };
 }
 export async function catalog() {
   if (!live()) return products;

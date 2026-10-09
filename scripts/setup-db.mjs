@@ -4,7 +4,7 @@ import { products } from "../lib/catalog.ts";
 if (!process.env.DATABASE_URL)
   throw new Error("Add DATABASE_URL to .env first.");
 const sql = neon(process.env.DATABASE_URL);
-for (const file of ["neon.sql", "laptop-configurations.sql"])
+for (const file of ["neon.sql", "laptop-configurations.sql", "mobile.sql"])
   for (const statement of readFileSync(
     new URL("../db/" + file, import.meta.url),
     "utf8",

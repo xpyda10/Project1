@@ -41,6 +41,7 @@
     "**/*.mts"
   ],
   "exclude": [
+    "mobile",
     "node_modules",
     "examples",
     "build",

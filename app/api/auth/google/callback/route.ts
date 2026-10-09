@@ -57,8 +57,13 @@ export async function GET(req: Request) {
       db`INSERT INTO users(id,email,name) VALUES(${payload.sub},${payload.email},${String(payload.name || payload.email)}) ON CONFLICT(id) DO UPDATE SET email=EXCLUDED.email,name=EXCLUDED.name`,
       db`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(${await hash(session)},${payload.sub},now()+interval '7 days')`,
     ]);
+    const visitor = readCookie(req, "form_visitor");
+    if (/^[a-f0-9-]{72}$/.test(visitor)) {
+      // Adopt a guest bag on first sign-in; never overwrite an existing account bag.
+      await db`WITH adopted AS (INSERT INTO carts(id,items) SELECT ${await hash("account:" + payload.sub)},items FROM carts WHERE id=${await hash(visitor)} ON CONFLICT(id) DO NOTHING RETURNING id) DELETE FROM carts WHERE id=${await hash(visitor)} AND EXISTS(SELECT 1 FROM adopted)`;
+    }
     headers.append("Set-Cookie", cookie("form_session", session, 604800));
-    headers.set("Location", origin(req) + "/?auth=success");
+    headers.set("Location", origin(req) + (flow.mobile === "1" ? "/mobile-connect" : "/?auth=success"));
   } catch {
     headers.set("Location", origin(req) + "/?auth=failed");
   }

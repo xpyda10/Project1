@@ -288,17 +288,41 @@ export default function Shop({ checkout = false }: { checkout?: boolean }) {
       active = false;
     };
   }, []);
+  useEffect(() => {
+    if (!ready || !user || mode !== "live") return;
+    let stream: EventSource | null = null;
+    const connect = () => {
+      stream?.close();
+      if (document.hidden) return;
+      stream = new EventSource("/api/cart-events");
+      stream.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.expired) { stream?.close(); location.reload(); return; }
+        if (data.items && !saving.current) {
+          const parsed = cartSchema.safeParse(data.items);
+          if (parsed.success) setCart(parsed.data);
+        }
+      };
+    };
+    connect();
+    document.addEventListener("visibilitychange", connect);
+    return () => { stream?.close(); document.removeEventListener("visibilitychange", connect); };
+  }, [ready, user, mode]);
   async function saveCart(next: CartItem[]) {
     if (saving.current || !ready) return false;
     saving.current = true;
     setBusy(true);
     try {
-      await action({ action: "cart", items: next });
+      await action({ action: "cart", items: next, baseItems: cart });
       setCart(next);
       if (mode === "demo") demoCart = next;
       return true;
     } catch (e) {
       toast.error((e as Error).message);
+      if (mode === "live") {
+        const response = await fetch("/api/shop");
+        if (response.ok) setCart(cartSchema.parse((await response.json()).items));
+      }
       return false;
     } finally {
       saving.current = false;
@@ -1169,6 +1193,7 @@ export default function Shop({ checkout = false }: { checkout?: boolean }) {
                     onClick={async () => {
                       try {
                         await action({ action: "logout" });
+                        location.reload();
                         setUser(null);
                         toast.success("Signed out");
                       } catch (e) {
