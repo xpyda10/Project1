@@ -27,6 +27,13 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "69de7336-3e7f-441a-9981-5839356cf09f"
+      }
+    },
+    "owner": "xpydaman"
   }
 }
