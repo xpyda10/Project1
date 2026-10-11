@@ -5,7 +5,17 @@ The app reads the live catalogue, saves the cart, and submits demo orders throug
 the same `https://nova-shop-eight-mu.vercel.app/api/shop` endpoint as the website.
 No database, Google, or email-provider secret belongs in this app.
 
-## Run on a physical Android phone
+## Install the submission APK
+
+[Download NOVA 1.0.0 APK](https://expo.dev/artifacts/eas/w-TfRWqhss1HKax76h8tHxq_Kyn08r_m2tGLmcucUDg.apk) (approximately 100 MB).
+
+Built on 11 October 2026. Package: `com.novashop.student`; Android 7.0 or newer. The APK signature was verified and the download was tested without authentication. Install this file on your Android phone; no Expo Go or development computer is required. If Android asks, allow installation from the browser used to download it.
+
+Open Account → Continue with Google, use the same account as the website, approve the matching connection code, and return to NOVA. Keep Your bag open while adding a laptop on the website, then change the quantity on the phone and check the website. Physical-phone verification remains pending below.
+
+SHA-256: `823fae57ec46e6db21597d1c52af1a96524fc28cc33d8b4fc18a56c919c092a0`
+
+## Development with Expo Go
 
 1. Install **Expo Go** from Google Play. SDK 57 is required; update Expo Go if prompted.
 2. On the computer, open a terminal in this `mobile` folder and run `npm ci`, then `npm start`.
@@ -18,16 +28,16 @@ If Wi-Fi blocks device access, use `npx expo start --tunnel` (requires the Expo 
 
 Google's project currently uses Testing mode. The account must be listed as an OAuth test user. Existing approved NOVA test accounts continue to work without a second Google client.
 
-## Optional installable APK
+## Rebuild the APK
 
-Expo Go runs the actual native app for the class demonstration. To create an APK that runs independently of the development computer, sign into an Expo account and run:
+To create a new standalone APK, sign into an Expo account with access to this project and run:
 
 ```sh
 npx eas-cli@latest login
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-The `preview` build in `eas.json` produces an Android APK. The Expo CLI will prompt to link/create the Expo project. Review any account terms yourself. This repository does not claim an APK or Play Store release has been built.
+The `preview` build in `eas.json` produces an Android APK. This project is linked to `xpydaman/nova-shop-mobile`. The APK above was built successfully with EAS; no Play Store release has been published.
 
 ## How accounts and carts work
 
